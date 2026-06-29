@@ -1,0 +1,10 @@
+# Build output
+/build/
+/dist/
+
+# Common editor / OS noise
+.vscode/
+.idea/
+*.user
+Thumbs.db
+desktop.ini
