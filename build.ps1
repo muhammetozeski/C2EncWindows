@@ -21,11 +21,31 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Discover Scoop install roots (the user's may live anywhere, e.g. C:\E\kp\scoop).
+function Get-ScoopRoots {
+    $roots = [System.Collections.Generic.List[string]]::new()
+    if ($env:SCOOP)        { $roots.Add($env:SCOOP) }
+    if ($env:SCOOP_GLOBAL) { $roots.Add($env:SCOOP_GLOBAL) }
+    $scoop = Get-Command scoop -ErrorAction SilentlyContinue
+    if ($scoop) { $roots.Add((Split-Path (Split-Path $scoop.Source -Parent) -Parent)) } # ...\shims\.. = root
+    $roots.Add("$env:USERPROFILE\scoop")
+    $roots.Add('C:\ProgramData\scoop')
+    return $roots | Where-Object { $_ } | Select-Object -Unique
+}
+
 function Resolve-Tool {
-    param([string]$Name, [string[]]$Globs)
+    param([string]$Name, [string[]]$Globs = @())
 
     $onPath = Get-Command $Name -ErrorAction SilentlyContinue
     if ($onPath) { return $onPath.Source }
+
+    # Scoop: <root>\apps\<name>\current\[bin\]<name>.exe
+    foreach ($root in Get-ScoopRoots) {
+        foreach ($sub in "apps\$Name\current\bin\$Name.exe", "apps\$Name\current\$Name.exe") {
+            $p = Join-Path $root $sub
+            if (Test-Path $p) { return (Resolve-Path $p).Path }
+        }
+    }
 
     foreach ($g in $Globs) {
         $hit = Get-ChildItem -Path $g -ErrorAction SilentlyContinue |
